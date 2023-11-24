@@ -1,0 +1,20 @@
+wsl antsRegistration --collapse-output-transforms 1 
+--dimensionality 3 
+--initial-moving-transform [ /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/T_Cosmo1mmT1.nii.gz, /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/Denoised_sub-02_ses-01_T1w.nii.gz, 0 ] 
+--initialize-transforms-per-stage 0 
+--interpolation Linear 
+--output /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/out_ 
+--transform Affine[ 2.0 ] 
+--metric Mattes[ /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/T_Cosmo1mmT1.nii.gz, /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/Denoised_sub-02_ses-01_T1w.nii.gz, 1, 32, Random, 0.05 ] 
+--convergence [ 500x250, 1e-07, 20 ] 
+--smoothing-sigmas 2.0x1.0vox 
+--shrink-factors 4x2 
+--use-histogram-matching 1 
+--transform SyN[ 0.15, 3.0, 0.0 ] 
+--metric CC[ /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/T_Cosmo1mmT1.nii.gz, /mnt/d/users/getang/IIH/data/Segmentations/SANS_template/Denoised_sub-02_ses-01_T1w.nii.gz, 1, 2 ] 
+--convergence [ 100x70x50x50, 1e-08, 20 ] 
+--smoothing-sigmas 4.0x2.0x1.0x0.0vox 
+--shrink-factors 8x4x2x1 
+--use-histogram-matching 1 
+--winsorize-image-intensities [ 0.0, 1.0 ]  
+--write-composite-transform 0
