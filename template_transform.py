@@ -222,6 +222,8 @@ def convert_linux_to_win(filename:str):
     return filename.replace('/mnt/d', 'D:').replace('/','\\')
 
 #%% Registration
+# !!! For the T1w and T2w images, the Atalas is the moving image. 
+# Reasoning behind this is we register the larger image to the smaller image
 proj_path = r'D:\users\getang\IIH'
 project_name = 'IIH'
 
