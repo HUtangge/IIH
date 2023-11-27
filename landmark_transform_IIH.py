@@ -18,6 +18,7 @@ import logging
 def save_listdict_to_csv(data:list, namelist:list, filename:str):
     keys = set(key for dct in data for key in dct.keys())
     keys.add('filename')
+    keys.add('modality')
     # Open a CSV file for writing
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         # Create a DictWriter object with the determined keys
@@ -28,7 +29,12 @@ def save_listdict_to_csv(data:list, namelist:list, filename:str):
         for row, item in zip(data, namelist):
             print(len(row.keys()))
             item = {'filename':item}
+            if len(row) < 150:
+                modality = {'modality':'T1'}
+            else:
+                modality = {'modality':'T2'}
             row.update(item)
+            row.update(modality)
             writer.writerow(row)
 
 """
