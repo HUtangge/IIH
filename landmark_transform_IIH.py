@@ -15,8 +15,9 @@ import csv
 import logging
 
 #%% Functions for this script
-def save_listdict_to_csv(data:list, filename:str):
+def save_listdict_to_csv(data:list, namelist:list, filename:str):
     keys = set(key for dct in data for key in dct.keys())
+    keys.add('filename')
     # Open a CSV file for writing
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         # Create a DictWriter object with the determined keys
@@ -24,7 +25,10 @@ def save_listdict_to_csv(data:list, filename:str):
         # Write the header (field names)
         writer.writeheader()
         # Write the dictionary data
-        for row in data:
+        for row, item in zip(data, namelist):
+            print(len(row.keys()))
+            item = {'filename':item}
+            row.update(item)
             writer.writerow(row)
 
 """
@@ -139,7 +143,9 @@ for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]):
             print('Close the Scene')
             su.closeScene()       
 
-save_listdict_to_csv(VolumeMetrics_forall, summary_path)
+namelist = df_fls[0] + df_fls[1]
+namelist = [os.path.basename(path) for path in namelist]
+save_listdict_to_csv(VolumeMetrics_forall, namelist, summary_path)
 
 #%%
 
