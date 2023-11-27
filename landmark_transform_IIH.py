@@ -54,7 +54,7 @@ pnFIDS = r'%s\data\Segmentations'%project_path
 fnSEGSptn = r'Segs_%s%s.seg.nrrd' # Way to use: name = fnSEGSptn %(a,b)
 fnFIDSptn = r'fids_%s%s.fcsv'
 pnMRI = r'%s\data\Rawdata'%project_path
-ptnMRI = r'Denoised_*_%sw.nii'
+fnMRIptn = r'Denoised_*_%sw.nii'
 summary_path = r'%s\data\Rawdata\Summary\volumetrics_forall_IIH_25112023.csv'%project_path
 df_fls = []
 VolumeMetrics_forall = []
@@ -66,10 +66,10 @@ for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]):
     fnATL  = fnATLptn%(modality[0],modality[1])
     fnSEGS = fnSEGSptn%(modality[0],modality[1])
     fnFIDS = fnFIDSptn%(modality[0],modality[1])
-    ptnMRI = r'Denoised_*_%sw.nii'%(modality[1])
+    fnMRI = fnMRIptn%(modality[1])
 
     # Attention: Locate file use fnmatch, which is different from regular expression
-    fl = fs.locateFiles(ptnMRI, pnMRI, level=1)
+    fl = fs.locateFiles(fnMRI, pnMRI, level=1)
     df_fls.append(fl)
     
     # for each file
