@@ -105,7 +105,7 @@ eyeball_dist['L_optcanal_size'] = np.pi * eyeball_dist['h1_L'] * eyeball_dist['w
 
 # Merge all the Metrics
 Metric4Merge = Metrics.copy() 
-Metric4Merge.set_index('id', inplace = True)
+Metric4Merge.set_index('id', drop=False, inplace = True)
 Eyeball_dist4Merge = eyeball_dist.copy()
 Eyeball_dist4Merge.set_index('id', inplace = True)
 
@@ -117,3 +117,5 @@ if save:
     print(f'Saving the Metrics to the {project_path_pc}')
     MergedMetrics.to_csv(os.path.join(project_path_pc, f'{Metrics_name}.csv'), index = False)
     MergedMetrics.to_excel(os.path.join(project_path_pc, f'{Metrics_name}.xlsx'), index = False)
+
+# %%
