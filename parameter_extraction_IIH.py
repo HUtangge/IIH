@@ -96,6 +96,7 @@ Metrics['R_lens'] = volume['R_lens_Labelmapvolume_cm3']
 Metrics['L_lens'] = volume['L_lens_Labelmapvolume_cm3']
 Metrics['Pituitary_gland'] = volume['Pituitary_gland_Labelmapvolume_cm3']
 Metrics['id'] = volume['id']
+Metrics['modality'] = volume['modality']
 
 # The distance metrics
 eyeball_dist = pd.read_csv(os.path.join(project_path_pc, filename_dists))
