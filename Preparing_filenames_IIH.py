@@ -30,6 +30,7 @@ import re
 
 #%% Configuration
 save = True
+test = False
 info_file = 'IIH_with_BMI.xlsx'
 parameter_file = 'IIH_Metrics.csv'
 newfile_name = 'withinfo_IIH_Metrics_20231127'
@@ -42,7 +43,10 @@ info_all = info_all[colnames_info]
 
 #%% Get the fileinformation based on the file names
 df = pd.read_csv(fs.osnj(project_path, 'data', parameter_file))
-df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
+df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id')        
+
+if test:
+    df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
 
 if save:   
     print(f'Saving the Metrics to the {project_path}')
