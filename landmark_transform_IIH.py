@@ -43,6 +43,13 @@ def save_listdict_to_csv(data:list, namelist:list, filename:str):
             row.update(modality)
             writer.writerow(row)
 
+def LabelmapHardenTransform(namesLabelmap:list, transform):
+    for name in namesLabelmap:
+        nlab = getNode(name)
+        nlab.SetAndObserveTransformNodeID(transform.GetID())
+        nlab.HardenTransform()
+
+
 """
 Tangge: This is the code for 20231127
 Rerun to get the volumn of the eyeball and the individualized center of eyeball and lens
@@ -77,7 +84,8 @@ VolumeMetrics_forall = []
 FeretdiameterMatrics_forall = []
 #%% The main loop
 # for each cohort
-for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]): 
+# for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]): 
+for iterc, modality in enumerate([['IIH02mm', 'T1']]): 
     print(iterc, modality)    
     fnATL  = fnATLptn%(modality[0],modality[1])
     fnSEGS = fnSEGSptn%(modality[0],modality[1])
@@ -119,7 +127,11 @@ for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]):
         # Convert vtkMRMLSegmentationNode to vtkMRMLLabelMapVolumeNode for apply transform
         fnSEGSroot = os.path.basename(os.path.join(pnFIDS,fnSEGS))[:os.path.basename(os.path.join(pnFIDS,fnSEGS)).find('.')]
         fnATLroot = os.path.basename(os.path.join(pnATL,fnATL))[:os.path.basename(os.path.join(pnATL,fnATL)).find('.')]
-        nSEGSlabel = su.segmentationExportToLabelmapByRegionNames(fnSEGSroot, fnATLroot, f"{fnSEGSroot}_labelmap") 
+        su.segmentationExportToIndividualLabelmap(fnSEGSroot, fnATLroot) 
+        nSEGSlabelnames, _ = su.segmentationListRegions(fnSEGSroot)
+        nSEGSlabelnames = [element + "_labelmap" for element in nSEGSlabelnames]
+        # Export to models instead of the labelmap
+        model_FolderItemId = su.segmentationExportToModelsByRegionNames(fnSEGSroot, f"{fnSEGSroot}_model")
         slicer.mrmlScene.RemoveNode(nSEGS)
 
         # Load the transforms
@@ -129,18 +141,21 @@ for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]):
         nATL.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())
         nFIDS.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())        
         # nSEGS.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())       
-        nSEGSlabel.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())
-        
+
         # Save the transformed segmentation and fiducials
         nFIDS.HardenTransform() # IMPORTANT!!
         # nSEGS.HardenTransform() # IMPORTANT!!     
-        nSEGSlabel.HardenTransform()
-        
-        nSEGSnew = su.segmentationImportLabelmap(f"{fnSEGSroot}", f"{fnSEGSroot}_labelmap")
-        nSEGS = nSEGSnew
-        nSEGS.CreateClosedSurfaceRepresentation()
+        # nSEGSlabel.HardenTransform()
+        LabelmapHardenTransform(nSEGSlabelnames, nTrfATLtoT1_AFF)
+        su.transformApplytransformtoModelFolder(model_FolderItemId, nTrfATLtoT1_AFF)
+
+        nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_model")
+        slicer.mrmlScene.RemoveNode(model_FolderItemId)
+
+        nSEGS = nSEGSnewModel
         
         centers_of_eyeballandlens = su.segmentationGetCenterOfMassByRegionName(nSEGS.GetName(), ['R_eyeball', 'R_lens', 'L_eyeball', 'L_lens'])       
+        break
         su.fiducialListFromArray(nFIDS.GetName(), centers_of_eyeballandlens, ['individualized_center_R_eyeball', 'individualized_center_R_lens', 'individualized_center_L_eyeball', 'individualized_center_L_lens'])
         su.visFid_SetVisibility(nFIDS, locked = True, visibility = False)
         
@@ -158,6 +173,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]):
         ffVolumeOUT = su.osnj(pnOUT, fnVolumeOUT) 
         VolumeMetrics_forall.append(VolumeMetrics)
         
+        saveNode(nSEGS, f"D:/users/getang/IIH/data/Rawdata/sub-02_ses-01/test/{fnSEGSOUT}")
         # Save centerline model
         if centerline: 
             for region in regions_for_centerline: 
