@@ -4,7 +4,7 @@ Created on Fri Mar 26 11:20:56 2021
 
 @author: getang
 """
-
+#%%
 import sys
 sys.path.append(r"D:\users\getang\SANS\Slicertools")
 import file_search_tool as fs
@@ -57,14 +57,14 @@ Rerun to get the volumn of the eyeball and the individualized center of eyeball 
 #%% RUN IN SLICER 
 # Configurations
 project_path = r'D:\users\getang\IIH'
-flagDemo = False
-centerline = True
+flagDemo = True
+centerline = False
 regions_for_centerline = [{'region': 'L_ON', 'fids': 'L_ON_endpoints'},
                           {'region': 'R_ON', 'fids': 'R_ON_endpoints'}]
 # Measure the sheath
 sheathDiameter = False
 # Save visulization
-flagSaveVisualization = True # Save the image
+flagSaveVisualization = False # Save the image
 views3D = ['left', 'right', 'superior', 'anterior']
 
 # Naming the destination for the transformers and the segmentations
@@ -106,7 +106,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         if flagDemo & idx == 1:
             print('End of processing, breaking the loop')
             time.sleep(3)
-            su.closeScene()       
+            # su.closeScene()       
             break  
             
         # Load the model and landmarks
@@ -140,29 +140,22 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         nTrfATLtoT1_AFF.SetAndObserveTransformNodeID(nTrfATLtoT1_DEF.GetID())
         nATL.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())
         nFIDS.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())        
-        # nSEGS.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())       
 
         # Save the transformed segmentation and fiducials
         nFIDS.HardenTransform() # IMPORTANT!!
-        # nSEGS.HardenTransform() # IMPORTANT!!     
-        # nSEGSlabel.HardenTransform()
         LabelmapHardenTransform(nSEGSlabelnames, nTrfATLtoT1_AFF)
         su.transformApplytransformtoModelFolder(model_FolderItemId, nTrfATLtoT1_AFF)
 
-        nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_model")
-        slicer.mrmlScene.RemoveNode(model_FolderItemId)
-
+        nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_newSeg")
         nSEGS = nSEGSnewModel
-        
         centers_of_eyeballandlens = su.segmentationGetCenterOfMassByRegionName(nSEGS.GetName(), ['R_eyeball', 'R_lens', 'L_eyeball', 'L_lens'])       
-        break
         su.fiducialListFromArray(nFIDS.GetName(), centers_of_eyeballandlens, ['individualized_center_R_eyeball', 'individualized_center_R_lens', 'individualized_center_L_eyeball', 'individualized_center_L_lens'])
         su.visFid_SetVisibility(nFIDS, locked = True, visibility = False)
         
         # Save the Metrics calculated in slicer
         volume_stats = su.segmentationGetsegmentstatistics(nSEGS, nT1)
         VolumeMetrics = su.segmentationGetVolumemetric(volume_stats)   
-        
+
         # Set the file names
         pnOUT = os.path.join(pn,'Metrics')
         fnFIDSOUT = 'fids_on_%s.fcsv'%(fnroot)
@@ -173,7 +166,6 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         ffVolumeOUT = su.osnj(pnOUT, fnVolumeOUT) 
         VolumeMetrics_forall.append(VolumeMetrics)
         
-        saveNode(nSEGS, f"D:/users/getang/IIH/data/Rawdata/sub-02_ses-01/test/{fnSEGSOUT}")
         # Save centerline model
         if centerline: 
             for region in regions_for_centerline: 
@@ -228,7 +220,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
 
         # Save the Volume Metrics
         if not flagDemo:
-            saveNode(nFIDS, ffFIDSOUT)
+            # saveNode(nFIDS, ffFIDSOUT)
             saveNode(nSEGS, ffSEGSOUT) # now we have fiducials on HDD in subject space! 
             su.save_dict_to_csv(VolumeMetrics, ffVolumeOUT)     
 
