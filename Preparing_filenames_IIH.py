@@ -21,20 +21,16 @@ import os
 sys.path.append(os.path.join(project_path, 'src'))
 
 import file_search_tool as fs
-import csv
-import pandas as pd
 import numpy as np
-import warnings
-from datetime import date, timedelta
-import re
+import pandas as pd
 
 #%% Configuration
-save = True
+save = False
 test = False
 info_file = 'IIH_with_BMI.xlsx'
 parameter_file = 'IIH_Metrics.csv'
 newfile_name = 'withinfo_IIH_Metrics_20231127'
-colnames_info = ['id', 'group', 'birthdate', 'Gender', 'Height', 'Weight']
+colnames_info = ['id', 'group', 'birthdate', 'Gender', 'Height', 'Weight', 'age']
 
 #%% Get the file infomation based on the xslx sheets
 info = pd.read_excel(fs.osnj(project_path, 'info', info_file), sheet_name=None)
@@ -44,6 +40,8 @@ info_all = info_all[colnames_info]
 #%% Get the fileinformation based on the file names
 df = pd.read_csv(fs.osnj(project_path, 'data', parameter_file))
 df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id')        
+df_with_info = df_with_info.replace(0, np.nan)
+df_with_info = df_with_info.replace('?', np.nan)
 
 if test:
     df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
