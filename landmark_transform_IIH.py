@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 26 11:20:56 2021
+This is for getting the induvidualized segmentation from the template
 
 @author: getang
 """
@@ -49,16 +49,127 @@ def LabelmapHardenTransform(namesLabelmap:list, transform):
         nlab.SetAndObserveTransformNodeID(transform.GetID())
         nlab.HardenTransform()
 
+def delete_all_segments(segmentation_node_name):
+    # Get the segmentation node
+    segmentation_node = slicer.util.getNode(segmentation_node_name)
+    
+    if not segmentation_node:
+        print(f"No segmentation node found with name: {segmentation_node_name}")
+        return False
+    
+    # Get the segmentation
+    segmentation = segmentation_node.GetSegmentation()
+    
+    # Get the number of segments
+    num_segments = segmentation.GetNumberOfSegments()
+    
+    # Remove all segments
+    for i in range(num_segments):
+        # Always remove the first segment (index 0) as the indices shift after each removal
+        segment_id = segmentation.GetNthSegmentID(0)
+        segmentation.RemoveSegment(segment_id)
+    
+    print(f"All segments deleted from {segmentation_node_name}")
+    return True
+
+def print_segmentation_info(segmentation_node_name):
+    segmentation_node = slicer.util.getNode(segmentation_node_name)
+    if not segmentation_node:
+        print(f"No segmentation node found with name: {segmentation_node_name}")
+        return
+    
+    segmentation = segmentation_node.GetSegmentation()
+    number_of_segments = segmentation.GetNumberOfSegments()
+    
+    print(f"Segmentation: {segmentation_node_name}")
+    print(f"Number of segments: {number_of_segments}")
+    print("--------------------")
+    
+    for segment_index in range(number_of_segments):
+        segment = segmentation.GetNthSegment(segment_index)
+        segment_name = segment.GetName()
+        
+        binary_labelmap_name = slicer.vtkSegmentationConverter.GetBinaryLabelmapRepresentationName()
+        labelmap = segment.GetRepresentation(binary_labelmap_name)
+        
+        if labelmap:
+            dimensions = labelmap.GetDimensions()
+            spacing = labelmap.GetSpacing()
+            origin = labelmap.GetOrigin()
+            
+            print(f"Segment: {segment_name}")
+            print(f"  Dimensions: {dimensions[0]} x {dimensions[1]} x {dimensions[2]} voxels")
+            print(f"  Spacing: {spacing[0]:.2f} x {spacing[1]:.2f} x {spacing[2]:.2f} mm")
+            print(f"  Origin: {origin[0]:.2f}, {origin[1]:.2f}, {origin[2]:.2f}")
+            
+            physical_size = [d * s for d, s in zip(dimensions, spacing)]
+            print(f"  Physical Size: {physical_size[0]:.2f} x {physical_size[1]:.2f} x {physical_size[2]:.2f} mm")
+            
+            # Calculate bounding box
+            bounds = [0] * 6
+            segment.GetBounds(bounds)
+            print(f"  Bounding Box: ")
+            print(f"    X: {bounds[0]:.2f} to {bounds[1]:.2f}")
+            print(f"    Y: {bounds[2]:.2f} to {bounds[3]:.2f}")
+            print(f"    Z: {bounds[4]:.2f} to {bounds[5]:.2f}")
+        else:
+            print(f"Segment: {segment_name}")
+            print("  No binary labelmap representation found for this segment.")
+        
+        print("--------------------")
+
+def check_binary_labelmap_resolution(segmentation_node_name):
+    # Get the segmentation node
+    segmentation_node = slicer.util.getNode(segmentation_node_name)
+    
+    if not segmentation_node:
+        print(f"No segmentation node found with name: {segmentation_node_name}")
+        return
+    
+    # Get the segmentation object
+    segmentation = segmentation_node.GetSegmentation()
+    
+    # Get the binary labelmap representation name
+    binary_labelmap_name = slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName()
+    
+    # Check if the segmentation contains binary labelmap representation
+    if not segmentation.ContainsRepresentation(binary_labelmap_name):
+        print("This segmentation does not contain binary labelmap representation.")
+        return
+    
+    # Iterate through all segments
+    for segment_index in range(segmentation.GetNumberOfSegments()):
+        segment = segmentation.GetNthSegment(segment_index)
+        segment_name = segment.GetName()
+        
+        # Get the binary labelmap representation for this segment
+        binary_labelmap = segment.GetRepresentation(binary_labelmap_name)
+        
+        if binary_labelmap:
+            # Get the dimensions of the binary labelmap
+            dimensions = binary_labelmap.GetDimensions()
+            
+            # Get the spacing (resolution) of the binary labelmap
+            spacing = binary_labelmap.GetSpacing()
+            []
+            print(f"\nSegment: {segment_name}")
+            print(f"Dimensions: {dimensions[0]} x {dimensions[1]} x {dimensions[2]} voxels")
+            print(f"Spacing (mm): {spacing[0]:.2f} x {spacing[1]:.2f} x {spacing[2]:.2f}")
+        else:
+            print(f"\nSegment: {segment_name}")
+            print("No binary labelmap representation found for this segment.")
 
 """
 Tangge: This is the code for 20231127
 Rerun to get the volumn of the eyeball and the individualized center of eyeball and lens
+!!!Comments: Due to the RAS coordinate system, I have to convert the transformed segmentation 
+into the model, then do the hadern transform.
 """
 #%% RUN IN SLICER 
 # Configurations
 project_path = r'D:\users\getang\IIH'
 flagDemo = True
-centerline = False
+centerline = True
 regions_for_centerline = [{'region': 'L_ON', 'fids': 'L_ON_endpoints'},
                           {'region': 'R_ON', 'fids': 'R_ON_endpoints'}]
 # Measure the sheath
@@ -113,7 +224,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         success,nATL = loadVolume(os.path.join(pnATL,fnATL),returnNode=True)
         nFIDS = loadMarkupsFiducialList(su.osnj(pnFIDS,fnFIDS),returnNode=True)
         success,nSEGS = loadSegmentation(os.path.join(pnFIDS,fnSEGS), returnNode=True)        
-        
+
         # load T1 volume
         success,nT1 = loadVolume(ff,returnNode=True)        
         # extract fn root: sub-cosmonaut01_ses-postflight_T1w_n4
@@ -127,12 +238,13 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         # Convert vtkMRMLSegmentationNode to vtkMRMLLabelMapVolumeNode for apply transform
         fnSEGSroot = os.path.basename(os.path.join(pnFIDS,fnSEGS))[:os.path.basename(os.path.join(pnFIDS,fnSEGS)).find('.')]
         fnATLroot = os.path.basename(os.path.join(pnATL,fnATL))[:os.path.basename(os.path.join(pnATL,fnATL)).find('.')]
-        su.segmentationExportToIndividualLabelmap(fnSEGSroot, fnATLroot) 
-        nSEGSlabelnames, _ = su.segmentationListRegions(fnSEGSroot)
-        nSEGSlabelnames = [element + "_labelmap" for element in nSEGSlabelnames]
-        # Export to models instead of the labelmap
         model_FolderItemId = su.segmentationExportToModelsByRegionNames(fnSEGSroot, f"{fnSEGSroot}_model")
-        slicer.mrmlScene.RemoveNode(nSEGS)
+
+        # Convert the segmentation to Labelmap and apply the transform
+        # su.segmentationExportToIndividualLabelmap(fnSEGSroot, fnATLroot) 
+        # nSEGSlabelnames, _ = su.segmentationListRegions(fnSEGSroot)
+        # nSEGSlabelnames = [element + "_labelmap" for element in nSEGSlabelnames]
+        # LabelmapHardenTransform(nSEGSlabelnames, nTrfATLtoT1_AFF)
 
         # Load the transforms
         success, nTrfATLtoT1_AFF = slicer.util.loadTransform(os.path.join(pn,fnAFF), returnNode=True)
@@ -143,10 +255,13 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
 
         # Save the transformed segmentation and fiducials
         nFIDS.HardenTransform() # IMPORTANT!!
-        LabelmapHardenTransform(nSEGSlabelnames, nTrfATLtoT1_AFF)
         su.transformApplytransformtoModelFolder(model_FolderItemId, nTrfATLtoT1_AFF)
+        
+        # Remove the template segments and keep the dimention and spacing of the Segment Node for storing the transformed model segment
+        delete_all_segments(fnSEGSroot)
 
-        nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_newSeg")
+        # nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_newSeg")
+        nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, fnSEGSroot)
         nSEGS = nSEGSnewModel
         centers_of_eyeballandlens = su.segmentationGetCenterOfMassByRegionName(nSEGS.GetName(), ['R_eyeball', 'R_lens', 'L_eyeball', 'L_lens'])       
         su.fiducialListFromArray(nFIDS.GetName(), centers_of_eyeballandlens, ['individualized_center_R_eyeball', 'individualized_center_R_lens', 'individualized_center_L_eyeball', 'individualized_center_L_lens'])
