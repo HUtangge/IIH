@@ -43,6 +43,19 @@ def save_listdict_to_csv(data:list, namelist:list, filename:str):
             row.update(modality)
             writer.writerow(row)
 
+def save_list_to_csv(data, filename):
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(data)
+
+def save_list_as_column(data, filename):
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['column1'])
+        # Write each item in the list as a separate row
+        for item in data:
+            writer.writerow([item])  # Wrap the item in a li
+
 def LabelmapHardenTransform(namesLabelmap:list, transform):
     for name in namesLabelmap:
         nlab = getNode(name)
@@ -168,7 +181,7 @@ into the model, then do the hadern transform.
 #%% RUN IN SLICER 
 # Configurations
 project_path = r'D:\users\getang\IIH'
-flagDemo = True
+flagDemo = False
 centerline = True
 regions_for_centerline = [{'region': 'L_ON', 'fids': 'L_ON_endpoints'},
                           {'region': 'R_ON', 'fids': 'R_ON_endpoints'}]
@@ -192,11 +205,10 @@ logging.basicConfig(filename=r'%s\data\Rawdata\Summary\log_scriptAstronaut_landm
 
 df_fls = []
 VolumeMetrics_forall = []
-FeretdiameterMatrics_forall = []
 #%% The main loop
 # for each cohort
 # for iterc, modality in enumerate([['IIH02mm', 'T1'], ['IIH02mm', 'T2']]): 
-for iterc, modality in enumerate([['IIH02mm', 'T1']]): 
+for iterc, modality in enumerate([['IIH02mm', 'T2']]): 
     print(iterc, modality)    
     fnATL  = fnATLptn%(modality[0],modality[1])
     fnSEGS = fnSEGSptn%(modality[0],modality[1])
@@ -240,7 +252,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
         fnATLroot = os.path.basename(os.path.join(pnATL,fnATL))[:os.path.basename(os.path.join(pnATL,fnATL)).find('.')]
         model_FolderItemId = su.segmentationExportToModelsByRegionNames(fnSEGSroot, f"{fnSEGSroot}_model")
 
-        # Convert the segmentation to Labelmap and apply the transform
+        # Alternative solution during development. Convert the segmentation to Labelmap and apply the transform
         # su.segmentationExportToIndividualLabelmap(fnSEGSroot, fnATLroot) 
         # nSEGSlabelnames, _ = su.segmentationListRegions(fnSEGSroot)
         # nSEGSlabelnames = [element + "_labelmap" for element in nSEGSlabelnames]
@@ -358,3 +370,13 @@ for iterc, modality in enumerate([['IIH02mm', 'T1']]):
 namelist = df_fls[0] + df_fls[1]
 namelist = [os.path.basename(path) for path in namelist]
 save_listdict_to_csv(VolumeMetrics_forall, namelist, summary_path)
+# Also save the file names
+save_list_as_column(fl, summary_filenamepath)
+
+#%% Testing
+
+segment_editor_widget = slicer.qMRMLSegmentEditorWidget()
+segment_editor_widget.setMRMLScene(slicer.mrmlScene)
+segment_editor_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+segment_editor_widget.setMRMLSegmentEditorNode(segment_editor_node)
+segment_editor_widget.setSegmentationNode(source_segmentation_node)
