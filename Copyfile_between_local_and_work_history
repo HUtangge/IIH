@@ -1,0 +1,4 @@
+
+scp -r getang@138.245.135.142:D:/users/getang/IIH/IIH_BIDS /Users/getang/Documents/EarthResearch/IIH/IIH_BIDS
+# 
+scp -r getang@138.245.135.142:D:/users/getang/IIH/IIH_BIDS /Users/getang/Documents/EarthResearch/IIH/IIH_BIDS
