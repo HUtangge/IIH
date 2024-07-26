@@ -26,10 +26,12 @@ import pandas as pd
 
 #%% Configuration
 save = False
-test = False
+test = True
 info_file = 'IIH_with_BMI.xlsx'
 parameter_file = 'IIH_Metrics.csv'
-newfile_name = 'withinfo_IIH_Metrics_20231127'
+globe_shape_fl = 'filenames_polar_projection_eyeball_90.csv'
+newfile_name = 'withinfo_IIH_Metrics'
+fl_globe_shape_filename = 'Polar_projection_info'
 colnames_info = ['id', 'group', 'birthdate', 'Gender', 'Height', 'Weight', 'age']
 
 #%% Get the file infomation based on the xslx sheets
@@ -44,12 +46,35 @@ df_with_info = df_with_info.replace(0, np.nan)
 df_with_info = df_with_info.replace('?', np.nan)
 
 if test:
-    df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
+    df_with_info.to_csv(os.path.join(project_path, 'data', 'testing.csv'),index = False)
+    # df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
 
 if save:   
     print(f'Saving the Metrics to the {project_path}')
     df_with_info.to_csv(os.path.join(project_path, 'data', f'{newfile_name}.csv'),index = False)
     df_with_info.to_excel(os.path.join(project_path, 'data', f'{newfile_name}.xlsx'), index = False)
+
+
+#%% Getting the info file for the globe shape analysis
+fl_globe_shape = pd.read_csv(fs.osnj(project_path, 'data', 'eyeball_polar_projection', globe_shape_fl))
+fl_globe_shape.loc[-1] = fl_globe_shape.columns
+fl_globe_shape.index = fl_globe_shape.index + 1
+fl_globe_shape = fl_globe_shape.sort_index()
+fl_globe_shape.columns = ['filename']
+fl_globe_shape['fn_root'] = fl_globe_shape['filename'].str.extract(r'(sub-\d+_ses-\d+_T\dw)')
+fl_globe_shape['modality'] = fl_globe_shape['filename'].str.extract(r'(T\d)')
+fl_globe_shape['id'] = fl_globe_shape['filename'].str.extract(r'(sub-\d+_ses-\d+)')
+fl_globe_shape['side_of_eyeball'] = fl_globe_shape['filename'].str.extract(r'projection_([RL])_eyeball')
+fl_globe_shape_with_info = pd.merge(left = fl_globe_shape, right = info_all, how = 'left', on = 'id')        
+
+if test:
+    fl_globe_shape_with_info.to_csv(os.path.join(project_path, 'data', 'testing.csv'),index = False)
+    # df_with_info = pd.merge(left = df, right = info_all, how = 'left', on = 'id', indicator=True)        
+
+if save:   
+    print(f'Saving the Metrics to the {project_path}')
+    fl_globe_shape_with_info.to_csv(os.path.join(project_path, 'data', f'{fl_globe_shape_filename}.csv'),index = False)
+    fl_globe_shape_with_info.to_excel(os.path.join(project_path, 'data', f'{fl_globe_shape_filename}.xlsx'), index = False)
 
 #%%
 if __name__ == "__main__":
