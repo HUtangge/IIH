@@ -19,7 +19,8 @@ save = False
 plotting = True
 projection_map = 'Polar'
 degree_to_center = 90
-side_of_eye = 'L' # choices are 'R', 'L'
+side_of_eye = ['L', 'R'] # choices are 'R', 'L', and ['L', 'R']
+modality = 'T1' # For IIH cohort, the modality is T1 and T2
 contour_level = 200
 # Parameters for the size of degree on the plot
 # Define the radii for the three circles
@@ -172,9 +173,9 @@ def plot_2d_contour(grid_x, grid_y, grid_z, plotname = None, levels=1000, cmap='
 
 #%% Names of the files
 pnpolarprojection = fs.osnj(project_path, 'data')
-fnpolarprojection = f'{projection_map}_projection_{side_of_eye}*.vtp'
-fnsummary = f'{projection_map}_projection_{side_of_eye}_eyeball_{degree_to_center}_summary.npy'
-polargrid = f'{projection_map}_grid_{side_of_eye}_eyeball_{degree_to_center}_summary.npy'
+fnpolarprojection = f'{projection_map}_projection_*.vtp'
+fnsummary = f'{projection_map}_projection_eyeball_{degree_to_center}_summary.npy'
+polargrid = f'{projection_map}_grid_eyeball_{degree_to_center}_summary.npy'
 plotname = f'{projection_map} projection of the back of the eyeball'
 info_filename = f'Polar_projection_info.csv'
 
@@ -191,10 +192,6 @@ if save:
         elif projection_map == 'Polar':
             print('Loading Polar coordinate transformed data')
             data = vtk_points_to_numpy_array(load_vtk_points(file))
-            # lowerbound = (data[:,0]>-0.5).tolist()
-            # upperbound = (data[:,0]<0.5).tolist()
-            # point_list = np.all([lowerbound, upperbound], axis=0)
-            # data = data[point_list]
 
         # Stack all the data into a 3D array, while keeping the grid also saved
         x = data[:, 0]
@@ -212,7 +209,7 @@ if save:
             Grids = np.concatenate((X, Y), axis=2)
         else:
             PolarprojectionMetrics = np.concatenate((PolarprojectionMetrics, Z), axis=2)
-
+    # Save the files
     print(f'Saving file to {os.path.join(pnpolarprojection, fnsummary)}')
     np.save(os.path.join(pnpolarprojection, fnsummary), PolarprojectionMetrics)
     np.save(os.path.join(pnpolarprojection, polargrid), Grids)
@@ -221,46 +218,76 @@ if save:
 if plotting:
     # Configuration for the plotting
     df_info = pd.read_csv(fs.osnj(project_path, 'data', info_filename))
-    df_info = df_info[df_info['side_of_eyeball'] == side_of_eye].reset_index(drop=True)
-    # Load the 3D data and preparing plotting
-    PolarprojectionMetrics = np.load(os.path.join(pnpolarprojection, fnsummary))
-    Grids = np.load(os.path.join(pnpolarprojection, polargrid))
-    X = Grids[:,:,0]
-    Y = Grids[:,:,1]
-    condition = input("Please enter which condition for plotting: e.g., control, variance, cosmonaut_preflight, cosmonaut_postflight1, cosmonaut_followup, preflight-postflight1, preflight-followup ... ")
-    if condition == 'control':
-        cmap = cm.hot.reversed()
-        df_info = df_info[df_info['side_of_eyeball'] == side_of_eye].reset_index(drop=True)
-        file_idx = df_info[df_info['group'] == 'control'].index.values
-        file_idx = np.squeeze(file_idx)
-        PolarprojectionMetrics = PolarprojectionMetrics[:,:,file_idx]
-        Z = np.mean(PolarprojectionMetrics, axis=2)    
-        vmin = np.nanmin(Z)
-        vmax = np.nanmax(Z)
-    elif condition == 'variance':
-        cmap = cm.hot.reversed()
-        file_idx = df_info[df_info['group'] == 'control'].index.values
-        file_idx = np.squeeze(file_idx)
-        PolarprojectionMetrics = PolarprojectionMetrics[:,:,file_idx]
-        Z = np.var(PolarprojectionMetrics, axis=2)
-        vmin = np.nanmin(Z)
-        vmax = np.nanmax(Z)
-    # This is a minus sign '-'
-    elif '-' in condition:
-        cmap = cm.seismic
-        firstcondition = df_info[(df_info['group'] == 'cosmonaut') & (df_info['session'] == condition.split('-')[0])][['index']].values
-        secondcondition = df_info[(df_info['group'] == 'cosmonaut') & (df_info['session'] == condition.split('-')[1])][['index']].values
-        firstcondition = np.squeeze(firstcondition)
-        secondcondition = np.squeeze(secondcondition)
-        PolarprojectionMetrics_difference = (np.mean(PolarprojectionMetrics[:,:,firstcondition], axis=2)-
-                                            np.mean(PolarprojectionMetrics[:,:,secondcondition], axis=2))
-        Z = PolarprojectionMetrics_difference
-        global_lim = max(abs(np.nanmin(Z)), abs(np.nanmax(Z)))
-        vmin = -global_lim
-        vmax = global_lim
+    if not (('R' in side_of_eye) and ('L' in side_of_eye)):
+        # Load the 3D data and preparing plotting
+        PolarprojectionMetrics = np.load(os.path.join(pnpolarprojection, fnsummary))
+        Grids = np.load(os.path.join(pnpolarprojection, polargrid))
+        X = Grids[:,:,0]
+        Y = Grids[:,:,1]
+        condition = input("Please enter which condition for plotting: e.g., control, variance, cosmonaut_preflight, cosmonaut_postflight1, cosmonaut_followup, preflight-postflight1, preflight-followup ... ")
+        if condition == 'control':
+            cmap = cm.hot.reversed()
+            file_idx = df_info[(df_info['group'] == 'control') & (df_info['side_of_eyeball'] == side_of_eye) & (df_info['modality'] == modality)].index.values
+            file_idx = np.squeeze(file_idx)
+            PolarprojectionMetrics = PolarprojectionMetrics[:,:,file_idx]
+            Z = np.mean(PolarprojectionMetrics, axis=2)    
+            vmin = np.nanmin(Z)
+            vmax = np.nanmax(Z)
+        elif condition == 'variance':
+            cmap = cm.hot.reversed()
+            file_idx = df_info[(df_info['group'] == 'control') & (df_info['side_of_eyeball'] == side_of_eye) & (df_info['modality'] == modality)].index.values
+            file_idx = np.squeeze(file_idx)
+            PolarprojectionMetrics = PolarprojectionMetrics[:,:,file_idx]
+            Z = np.var(PolarprojectionMetrics, axis=2)
+            vmin = np.nanmin(Z)
+            vmax = np.nanmax(Z)
 
-    plotname = f'{side_of_eye}_back_of_eyeball_{projection_map}_projection_for_{condition}'    
-    plot_2d_contour(X, Y, Z, plotname = plotname, cmap = cmap, levels = contour_level)
+        plotname = f'{side_of_eye}_back_of_eyeball_{projection_map}_projection_for_{condition}'    
+        plot_2d_contour(X, Y, Z, plotname = plotname, cmap = cmap, levels = contour_level)
+    
+    elif ('R' in side_of_eye) and ('L' in side_of_eye):
+        print('Plotting both eyes')
+        # Load the 3D data and preparing plotting
+        condition = input("Please enter which condition for plotting: e.g., control, variance, cosmonaut_preflight, cosmonaut_postflight1, cosmonaut_followup, preflight-postflight1, preflight-followup ... ")
+        fnsummary = f'{projection_map}_projection_eyeball_{degree_to_center}_summary.npy'
+        polargrid = f'{projection_map}_grid_eyeball_{degree_to_center}_summary.npy'
+
+        # Loading the Polar Metrics for both eye and store them into a 4D array
+        PolarprojectionMetrics = np.expand_dims(np.load(os.path.join(pnpolarprojection, fnsummary)), axis = -1)
+        for idx, eye in enumerate(side_of_eye):
+            if condition == 'variance':
+                print(f'selecting Controls')
+                file_idx = df_info[(df_info['group'] == 'control') & (df_info['side_of_eyeball'] == eye) & (df_info['modality'] == modality)].index.values
+            else:
+                file_idx = df_info[(df_info['group'] == condition) & (df_info['side_of_eyeball'] == eye) & (df_info['modality'] == modality)].index.values
+            
+            file_idx = np.squeeze(file_idx)
+            plotname = list([f'{eye}_back_of_eyeball_{projection_map}_projection_for_{condition}'])
+            if idx == 0:
+                PolarprojectionMetrics4D = PolarprojectionMetrics[:,:,file_idx,:]
+                plotnameall = list([plotname])
+            else:
+                PolarprojectionMetrics4D = np.concatenate((PolarprojectionMetrics4D, PolarprojectionMetrics[:,:,file_idx,:]), axis=3)
+                plotnameall.append(plotname)
+
+        # Get the Grids
+        Grids = np.load(os.path.join(pnpolarprojection, polargrid))
+        X = Grids[:,:,0]
+        Y = Grids[:,:,1]
+
+        if condition == 'control':
+            cmap = cm.hot.reversed()
+            # cmap = cm.coolwarm
+            Z = np.mean(PolarprojectionMetrics4D, axis=2)
+            vmin = np.nanmin(Z)
+            vmax = np.nanmax(Z)
+        elif condition == 'variance':
+            cmap = cm.hot.reversed()
+            Z = np.var(PolarprojectionMetrics4D, axis=2)
+            vmin = np.nanmin(Z)
+            vmax = np.nanmax(Z)
+
+        plot_2d_contour(X, Y, Z, plotname = plotnameall, cmap = cmap, levels = contour_level)
 
 if __name__ == 'main': 
     print('Done')
