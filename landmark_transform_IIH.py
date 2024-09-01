@@ -35,7 +35,7 @@ def save_listdict_to_csv(data:list, namelist:list, filename:str):
             if item == 'Denoised_sub-02_ses-01_T1w.nii':
                 print(len(row.keys()))
             item = {'filename':item}
-            if len(row) < 150:
+            if len(row) < 50:
                 modality = {'modality':'T1'}
             else:
                 modality = {'modality':'T2'}
@@ -172,6 +172,29 @@ def check_binary_labelmap_resolution(segmentation_node_name):
             print(f"\nSegment: {segment_name}")
             print("No binary labelmap representation found for this segment.")
 
+def get_plane_normal(slice_name="Red"):
+    """
+    Get the normal vector of a reoriented plane.
+    
+    :param slice_name: Name of the slice view ("Red", "Green", or "Yellow")
+    :return: Normal vector as a numpy array [x, y, z]
+    """
+    # Get the slice node
+    layoutManager = slicer.app.layoutManager()
+    sliceWidget = layoutManager.sliceWidget(slice_name)
+    sliceLogic = sliceWidget.sliceLogic()
+    sliceNode = sliceLogic.GetSliceNode()
+    # Get the slice-to-RAS matrix
+    sliceToRAS = sliceNode.GetSliceToRAS()
+    # Extract the normal vector from the matrix
+    # The normal is the third column of the rotation matrix
+    normal = np.array([sliceToRAS.GetElement(0, 2),
+                       sliceToRAS.GetElement(1, 2),
+                       sliceToRAS.GetElement(2, 2)])
+    # Normalize the vector (ensure it has unit length)
+    normal = normal / np.linalg.norm(normal)
+    return normal
+
 """
 Tangge: This is the code for 20231127
 Rerun to get the volumn of the eyeball and the individualized center of eyeball and lens
@@ -186,7 +209,7 @@ centerline = True
 regions_for_centerline = [{'region': 'L_ON', 'fids': 'L_ON_endpoints'},
                           {'region': 'R_ON', 'fids': 'R_ON_endpoints'}]
 # Measure the sheath
-sheathDiameter = False
+sheathDiameter = True
 # Save visulization
 flagSaveVisualization = False # Save the image
 views3D = ['left', 'right', 'superior', 'anterior']
@@ -214,29 +237,25 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
     fnSEGS = fnSEGSptn%(modality[0],modality[1])
     fnFIDS = fnFIDSptn%(modality[0],modality[1])
     fnMRI = fnMRIptn%(modality[1])
-
     # Attention: Locate file use fnmatch, which is different from regular expression
+    fnMRI = "Denoised_sub-20_ses-01_T2w.nii"
     fl = fs.locateFiles(fnMRI, pnMRI, level=1)
-    df_fls.append(fl)
-    
+    df_fls.append(fl)    
     # for each file
     for idx, ff in enumerate(fl):
         ff = ff.replace('/','\\')
         logging.info(f'Processing {idx} {ff}')
         print(f'Processing {idx} {ff}')
         su.setLayout(3)
-
-        if flagDemo & idx == 1:
+        if flagDemo & (idx == 0):
             print('End of processing, breaking the loop')
             time.sleep(3)
             # su.closeScene()       
-            break  
-            
+            break             
         # Load the model and landmarks
         success,nATL = loadVolume(os.path.join(pnATL,fnATL),returnNode=True)
         nFIDS = loadMarkupsFiducialList(su.osnj(pnFIDS,fnFIDS),returnNode=True)
         success,nSEGS = loadSegmentation(os.path.join(pnFIDS,fnSEGS), returnNode=True)        
-
         # load T1 volume
         success,nT1 = loadVolume(ff,returnNode=True)        
         # extract fn root: sub-cosmonaut01_ses-postflight_T1w_n4
@@ -246,43 +265,35 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
         which_sub = re.search('sub-(.+?)_ses', fnroot).group(1)
         fnAFF = 'trf-Temp_to_%s_AFF-%s.mat'%(which_sub, fnroot)
         fnDEF = 'trf-Temp_to_%s_DEF-%s.nii.gz'%(which_sub, fnroot)       
-
         # Convert vtkMRMLSegmentationNode to vtkMRMLLabelMapVolumeNode for apply transform
         fnSEGSroot = os.path.basename(os.path.join(pnFIDS,fnSEGS))[:os.path.basename(os.path.join(pnFIDS,fnSEGS)).find('.')]
         fnATLroot = os.path.basename(os.path.join(pnATL,fnATL))[:os.path.basename(os.path.join(pnATL,fnATL)).find('.')]
         model_FolderItemId = su.segmentationExportToModelsByRegionNames(fnSEGSroot, f"{fnSEGSroot}_model")
-
         # Alternative solution during development. Convert the segmentation to Labelmap and apply the transform
         # su.segmentationExportToIndividualLabelmap(fnSEGSroot, fnATLroot) 
         # nSEGSlabelnames, _ = su.segmentationListRegions(fnSEGSroot)
         # nSEGSlabelnames = [element + "_labelmap" for element in nSEGSlabelnames]
         # LabelmapHardenTransform(nSEGSlabelnames, nTrfATLtoT1_AFF)
-
         # Load the transforms
         success, nTrfATLtoT1_AFF = slicer.util.loadTransform(os.path.join(pn,fnAFF), returnNode=True)
         success, nTrfATLtoT1_DEF = slicer.util.loadTransform(os.path.join(pn,fnDEF), returnNode=True)        
         nTrfATLtoT1_AFF.SetAndObserveTransformNodeID(nTrfATLtoT1_DEF.GetID())
         nATL.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())
         nFIDS.SetAndObserveTransformNodeID(nTrfATLtoT1_AFF.GetID())        
-
         # Save the transformed segmentation and fiducials
         nFIDS.HardenTransform() # IMPORTANT!!
         su.transformApplytransformtoModelFolder(model_FolderItemId, nTrfATLtoT1_AFF)
-        
         # Remove the template segments and keep the dimention and spacing of the Segment Node for storing the transformed model segment
         delete_all_segments(fnSEGSroot)
-
         # nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, f"{fnSEGSroot}_newSeg")
         nSEGSnewModel = su.segmentationImportModelsInFolder(model_FolderItemId, fnSEGSroot)
         nSEGS = nSEGSnewModel
         centers_of_eyeballandlens = su.segmentationGetCenterOfMassByRegionName(nSEGS.GetName(), ['R_eyeball', 'R_lens', 'L_eyeball', 'L_lens'])       
         su.fiducialListFromArray(nFIDS.GetName(), centers_of_eyeballandlens, ['individualized_center_R_eyeball', 'individualized_center_R_lens', 'individualized_center_L_eyeball', 'individualized_center_L_lens'])
         su.visFid_SetVisibility(nFIDS, locked = True, visibility = False)
-        
         # Save the Metrics calculated in slicer
         volume_stats = su.segmentationGetsegmentstatistics(nSEGS, nT1)
         VolumeMetrics = su.segmentationGetVolumemetric(volume_stats)   
-
         # Set the file names
         pnOUT = os.path.join(pn,'Metrics')
         fnFIDSOUT = 'fids_on_%s.fcsv'%(fnroot)
@@ -291,8 +302,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
         ffFIDSOUT = su.osnj(pnOUT, fnFIDSOUT)
         ffSEGSOUT = su.osnj(pnOUT, fnSEGSOUT)
         ffVolumeOUT = su.osnj(pnOUT, fnVolumeOUT) 
-        VolumeMetrics_forall.append(VolumeMetrics)
-        
+        VolumeMetrics_forall.append(VolumeMetrics)        
         # Save centerline model
         if centerline: 
             for region in regions_for_centerline: 
@@ -326,7 +336,6 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
                 if not flagDemo:
                     saveNode(centerlineModel, ffCenterlineOUT)
                     su.save_tablepolydata_to_csv(centerlineMetrics, ffCenterlineMetricsOUT)                
-
         # Save sheath information
         if sheathDiameter and modality[1] == 'T2':  
             import CrossSectionAnalysis
@@ -344,13 +353,11 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
                 # Save the Model and Curve
                 if not flagDemo:
                     su.save_tablepolydata_to_csv(csatable, ffsheathdiameterMetricsOUT)
-
         # Save the Volume Metrics
         if not flagDemo:
-            # saveNode(nFIDS, ffFIDSOUT)
+            saveNode(nFIDS, ffFIDSOUT)
             saveNode(nSEGS, ffSEGSOUT) # now we have fiducials on HDD in subject space! 
             su.save_dict_to_csv(VolumeMetrics, ffVolumeOUT)     
-
         # Save the registration visulization
         if flagSaveVisualization:
             # Capture the whole view for checking registration
@@ -361,8 +368,7 @@ for iterc, modality in enumerate([['IIH02mm', 'T2']]):
             su.setSliceOffsetToFiducial('fids_%s%s'%(modality[0],modality[1]),'R_eyeball')
             su.forceViewUpdate() 
             ff_img_out = su.osnj(pnOUT,'imgs_on_%s.png'%(fnroot))
-            su.captureImageFromAllViews(ff_img_out)       
-    
+            su.captureImageFromAllViews(ff_img_out)           
         if not flagDemo:
             print('Close the Scene')
             su.closeScene()       
